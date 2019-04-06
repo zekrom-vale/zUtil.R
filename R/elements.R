@@ -11,7 +11,17 @@ not_distinct=function(df, ...){
 			!!!nd_vars
 		)%>%
 		filter(
-			reduce(!!!nd_vars, function(a,x)a&(n()>1), .init=TRUE)
+			n()>1
+		);
+}
+only_distinct=function(df, ...){
+	nd_vars=enquos(...);
+	df%>%
+		group_by(
+			!!!nd_vars
+		)%>%
+		filter(
+			n()==1
 		);
 }
 # Legacy alternative function using distinct and %in%
