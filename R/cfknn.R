@@ -1,7 +1,6 @@
-make_cross_folds=function(table, nfolds, times=1, na.action="mutate"){
+make_cross_folds=function(table, nfolds, times=1){
 	dims=dim(table);
 	nrows=dims[1];
-	df=fix_df(df, na.action);
 	rows=1:nrows;
 	rows=sample(rows, nrows);
 
@@ -30,8 +29,8 @@ make_cross_folds=function(table, nfolds, times=1, na.action="mutate"){
 predict_knn=function(df, ..., color,k=10, nfold=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, na.action);
-	cross_fold=make_cross_folds(df, nfold, na.action="");
+	df=fix_df(df, color, na.action);
+	cross_fold=make_cross_folds(df, nfold);
 	train_rows=cross_fold[[1]][[1]];
 	test_rows=cross_fold[[1]][[2]];
 	space_table=df%>%
@@ -52,7 +51,7 @@ predict_knn=function(df, ..., color,k=10, nfold=10, na.action="mutate"){
 predict_knn_error=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, na.action);
+	df=fix_df(df, color, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -86,8 +85,8 @@ predict_knn_error=function(df, folds, ..., color,k=10, na.action="mutate"){
 plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, na.action);
-	folds=make_cross_folds(df, nfold, times=times, na.action="");
+	df=fix_df(df, color, na.action);
+	folds=make_cross_folds(df, nfold, times=times);
 	err=c();
 	min_k=min(k)-1;
 	for(i in k){
@@ -108,7 +107,7 @@ plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutat
 predict_knn_errors=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, na.action);
+	df=fix_df(df, color, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -158,8 +157,8 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="
 	}
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, na.action);
-	folds=make_cross_folds(df, nfold, times=times, na.action="");
+	df=fix_df(df, color, na.action);
+	folds=make_cross_folds(df, nfold, times=times);
 	err=tibble(k=integer(), err=double());
 	for(i in k){
 		err=err%>%
@@ -206,7 +205,7 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="
 	list(err=err, sum=sum, plot=plot, min_avg);
 }
 
-fix_df=function(df, action){
+fix_df=function(df, color, action){
 	action=tolower(action);
 	if(action=="mutate"){
 		return(
