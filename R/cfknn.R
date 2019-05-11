@@ -192,7 +192,14 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="
 		geom_point(data=sum, aes(k, min), color="blue")+
 		geom_line(data=sum, aes(k, min), color="blue")+
 		labs(
-			title=paste("knn best k-value:", min_avg$k, collapse=", "),
+			title=paste0(
+				color,
+				"~",
+				paste(vars,collapse="+"),
+				" knn best k-value: ",
+				min_avg$k,
+				collapse=", "
+			),
 			subtitle=paste0("error: ", min_avg$avg[1]*100,"%")
 		)
 	# Quick warning checks
