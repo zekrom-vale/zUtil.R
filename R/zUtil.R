@@ -14,4 +14,5 @@
 #   Test Package:              'Ctrl + Shift + T'
 
 require(tidyverse);
+require(class);
 # This small utility package was developed by zekrom_vale to fill in the gaps missing.

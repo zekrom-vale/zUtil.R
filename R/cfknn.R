@@ -1,6 +1,3 @@
-library(tidyverse)
-library(class)
-
 make_cross_folds <- function(table, nfolds, times=1){
 	dims=dim(table)
 	nrows=dims[1]
