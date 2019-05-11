@@ -1,35 +1,37 @@
-make_cross_folds <- function(table, nfolds, times=1){
-	dims=dim(table)
-	nrows=dims[1]
-	rows=1:nrows
-	rows=sample(rows, nrows)
+make_cross_folds=function(table, nfolds, times=1, na.action="mutate"){
+	dims=dim(table);
+	nrows=dims[1];
+	df=fix_df(df, na.action);
+	rows=1:nrows;
+	rows=sample(rows, nrows);
 
-	fold_size=floor(nrows / nfolds)
-	last_fold_row=nfolds * fold_size
-	extra_start=last_fold_row + 1
-	extra_end=nrows
+	fold_size=floor(nrows / nfolds);
+	last_fold_row=nfolds * fold_size;
+	extra_start=last_fold_row + 1;
+	extra_end=nrows;
 
-	cross_folds=list()
+	cross_folds=list();
 	for (i in 1:nfolds){
 		for(q in 1:times){
 
-			fold_end=fold_size * i
-			fold_start=1 + fold_end - fold_size
+			fold_end=fold_size * i;
+			fold_start=1 + fold_end - fold_size;
 
-			fold_plus_extra=c(fold_start:fold_end, extra_start:extra_end)
-			test_rows=rows[fold_plus_extra]
-			train_rows=setdiff(rows, test_rows)
-			cross_folds[[i]]=list(train_rows, test_rows)
+			fold_plus_extra=c(fold_start:fold_end, extra_start:extra_end);
+			test_rows=rows[fold_plus_extra];
+			train_rows=setdiff(rows, test_rows);
+			cross_folds[[i]]=list(train_rows, test_rows);
 		}
 	}
-	cross_folds
+	cross_folds;
 }
 
 
-predict_knn=function(df, ..., color,k=10, nfold=10){
+predict_knn=function(df, ..., color,k=10, nfold=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	cross_fold=make_cross_folds(df, nfold);
+	df=fix_df(df, na.action);
+	cross_fold=make_cross_folds(df, nfold, na.action="");
 	train_rows=cross_fold[[1]][[1]];
 	test_rows=cross_fold[[1]][[2]];
 	space_table=df%>%
@@ -47,9 +49,10 @@ predict_knn=function(df, ..., color,k=10, nfold=10){
 	knn(fold_train, fold_test, fold_classes, k);
 }
 
-predict_knn_error=function(df, folds, ..., color,k=10){
+predict_knn_error=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
+	df=fix_df(df, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -80,10 +83,11 @@ predict_knn_error=function(df, folds, ..., color,k=10){
 	err/length(folds);
 }
 
-plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1){
+plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	folds=make_cross_folds(df, nfold, times=times);
+	df=fix_df(df, na.action);
+	folds=make_cross_folds(df, nfold, times=times, na.action="");
 	err=c();
 	min_k=min(k)-1;
 	for(i in k){
@@ -101,9 +105,10 @@ plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1){
 }
 
 
-predict_knn_errors=function(df, folds, ..., color,k=10){
+predict_knn_errors=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
+	df=fix_df(df, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -137,7 +142,7 @@ predict_knn_errors=function(df, folds, ..., color,k=10){
 }
 
 
-plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10){
+plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
 	# Bad setings warning
 	if(max(k)-min(k)<=30){
 		warning("Best k value may be inacurate due to limited checks");
@@ -153,13 +158,14 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10){
 	}
 	vars=enquos(...);
 	color=enquo(color);
-	folds=make_cross_folds(df, nfold, times=times);
+	df=fix_df(df, na.action);
+	folds=make_cross_folds(df, nfold, times=times, na.action="");
 	err=tibble(k=integer(), err=double());
 	for(i in k){
 		err=err%>%
 			add_row(
 				err=predict_knn_errors(
-					df, folds, !!!vars, color=!!color, k=i
+					df, folds, !!!vars, color=!!color, k=i, na.action=""
 				),
 				k=i
 			);
@@ -198,4 +204,25 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10){
 		warning("k value close to min, recomend expanding min range");
 	}
 	list(err=err, sum=sum, plot=plot, min_avg);
+}
+
+fix_df=function(df, action){
+	action=tolower(action);
+	if(action=="mutate"){
+		return(
+			df%>%
+				mutate(
+					!!color:=factor(
+						if_else(is.na(!!color),"", as.character(!!color))
+					)
+				)
+		);
+	}
+	if(action=="remove"){
+		return(
+			df%>%
+				filter(!is.na(!!color))
+		);
+	}
+	return(df);
 }
