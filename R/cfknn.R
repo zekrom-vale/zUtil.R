@@ -25,7 +25,7 @@ cf=function(table, nfolds, times=1){
 	cross_folds;
 }
 
-predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate"){
+predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
 	vars=enquos(...);
 	color=enquo(color);
 	df=fix_df(df, vars, color, na.action);
@@ -45,7 +45,7 @@ predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate"){
 		fold_classes=factor(fold_classes);
 		fold_test=space_table%>%
 			slice(test_rows);
-		predicted=knn(fold_train, fold_test, fold_classes, k);
+		predicted=knn(fold_train, fold_test, fold_classes, k, l=l, prob=prob, use.all=use.all);
 		# Test
 		actual=class_table%>%
 			slice(test_rows);
@@ -59,7 +59,7 @@ predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate"){
 	err/length(folds);
 }
 
-knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
+knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
 	vars=enquos(...);
 	color=enquo(color);
 	df=fix_df(df, vars, color, na.action);
@@ -69,7 +69,7 @@ knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 	for(i in k){
 
 		err[i-min_k]=predict_knn_(
-			df, folds, !!!vars, color=!!color, k=i
+			df, folds, !!!vars, color=!!color, k=i, l=l, prob=prob, use.all=use.all
 		)
 	}
 	df=tibble(k=k, err=err);
@@ -81,7 +81,7 @@ knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 }
 
 
-predict_knn=function(df, folds, ..., color,k=10, na.action="mutate"){
+predict_knn=function(df, folds, ..., color,k=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
 	vars=enquos(...);
 	color=enquo(color);
 	df=fix_df(df, vars, color, na.action);
@@ -102,7 +102,7 @@ predict_knn=function(df, folds, ..., color,k=10, na.action="mutate"){
 		fold_classes=factor(fold_classes);
 		fold_test=space_table%>%
 			slice(test_rows);
-		predicted=knn(fold_train, fold_test, fold_classes, k);
+		predicted=knn(fold_train, fold_test, fold_classes, k, l=l, prob=prob, use.all=use.all);
 		# Test
 		actual=class_table%>%
 			slice(test_rows);
@@ -118,7 +118,7 @@ predict_knn=function(df, folds, ..., color,k=10, na.action="mutate"){
 }
 
 
-knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
+knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
 	# Bad setings warning
 	if(max(k)-min(k)<=30){
 		warning("Best k value may be inacurate due to limited checks");
@@ -141,7 +141,7 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
 		err=err%>%
 			add_row(
 				err=predict_knn(
-					df, folds, !!!vars, color=!!color, k=i, na.action=""
+					df, folds, !!!vars, color=!!color, k=i, na.action="", l=l, prob=prob, use.all=use.all
 				),
 				k=i
 			);
