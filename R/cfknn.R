@@ -236,3 +236,34 @@ fix_df=function(df, vars, color, action){
 	}
 	return(df);
 }
+
+
+lm_cv=function(df, formula, nfolds = 10, times=2, cutoff=0.5){
+	cross_folds=cf(df, nfolds, times);
+	err=c();
+	for(i in 1:nfolds){
+		err[i]=lm_regression_error(df, formula, cross_folds[[i]], cutoff)
+	}
+	err;
+}
+
+lm_regression_error=function(df, formula, cross_fold, cutoff=0.5){
+	factor=sym(lhs.vars(formula));
+	actual_values=(
+		df%>%
+			slice(cross_fold[[2]])%>%
+			select(!!factor)
+	)[[1]];
+	predictions=predict(
+		lm(
+			formula,
+			df%>%
+				slice(cross_fold[[1]])
+		),
+		df%>%
+			slice(cross_fold[[2]])
+	);
+	predictions=if_else(predictions > cutoff, 1, 0);
+	errors=abs(actual_values - predictions);
+	mean(errors[!is.na(errors)]);
+}
