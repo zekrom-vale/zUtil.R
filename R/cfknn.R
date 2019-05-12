@@ -1,4 +1,4 @@
-make_cross_folds=function(table, nfolds, times=1){
+cf=function(table, nfolds, times=1){
 	dims=dim(table);
 	nrows=dims[1];
 	rows=1:nrows;
@@ -25,33 +25,10 @@ make_cross_folds=function(table, nfolds, times=1){
 	cross_folds;
 }
 
-
-predict_knn=function(df, ..., color,k=10, nfold=10, na.action="mutate"){
+predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, color, na.action);
-	cross_fold=make_cross_folds(df, nfold);
-	train_rows=cross_fold[[1]][[1]];
-	test_rows=cross_fold[[1]][[2]];
-	space_table=df%>%
-		select(!!!vars);
-	fold_train=space_table%>%
-		slice(train_rows);
-	class_table=df%>%
-		select(!!color);
-	fold_classes=class_table%>%
-		slice(train_rows);
-	fold_classes=fold_classes[[1]];
-	fold_classes=factor(fold_classes);
-	fold_test=space_table%>%
-		slice(test_rows);
-	knn(fold_train, fold_test, fold_classes, k);
-}
-
-predict_knn_error=function(df, folds, ..., color,k=10, na.action="mutate"){
-	vars=enquos(...);
-	color=enquo(color);
-	df=fix_df(df, color, na.action);
+	df=fix_df(df, !!color, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -82,16 +59,16 @@ predict_knn_error=function(df, folds, ..., color,k=10, na.action="mutate"){
 	err/length(folds);
 }
 
-plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
+knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, color, na.action);
-	folds=make_cross_folds(df, nfold, times=times);
+	df=fix_df(df, !!color, na.action);
+	folds=cf(df, nfold, times=times);
 	err=c();
 	min_k=min(k)-1;
 	for(i in k){
 
-		err[i-min_k]=predict_knn_error(
+		err[i-min_k]=predict_knn_(
 			df, folds, !!!vars, color=!!color, k=i
 		)
 	}
@@ -104,10 +81,10 @@ plot_knn_err=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutat
 }
 
 
-predict_knn_errors=function(df, folds, ..., color,k=10, na.action="mutate"){
+predict_knn=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, color, na.action);
+	df=fix_df(df, !!color, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -141,7 +118,7 @@ predict_knn_errors=function(df, folds, ..., color,k=10, na.action="mutate"){
 }
 
 
-plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
+knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
 	# Bad setings warning
 	if(max(k)-min(k)<=30){
 		warning("Best k value may be inacurate due to limited checks");
@@ -157,13 +134,13 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="
 	}
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, color, na.action);
-	folds=make_cross_folds(df, nfold, times=times);
+	df=fix_df(df, !!color, na.action);
+	folds=cf(df, nfold, times=times);
 	err=tibble(k=integer(), err=double());
 	for(i in k){
 		err=err%>%
 			add_row(
-				err=predict_knn_errors(
+				err=predict_knn(
 					df, folds, !!!vars, color=!!color, k=i, na.action=""
 				),
 				k=i
@@ -193,12 +170,11 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="
 		geom_line(data=sum, aes(k, min), color="blue")+
 		labs(
 			title=paste0(
-				color,
-				"~",
-				paste(vars,collapse="+"),
 				" knn best k-value: ",
-				min_avg$k,
-				collapse=", "
+				paste(
+					min_avg$k,
+					collapse=", "
+				)
 			),
 			subtitle=paste0("error: ", min_avg$avg[1]*100,"%")
 		)
@@ -209,16 +185,17 @@ plot_knn_errbar=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="
 	if(min(min_avg$k)<min(k)*1.1){
 		warning("k value close to min, recomend expanding min range");
 	}
-	list(err=err, sum=sum, plot=plot, min_avg);
+	list(err=err, sum=sum, plot=plot, min=min_avg);
 }
 
 fix_df=function(df, color, action){
+	color=enquo(color);
 	action=tolower(action);
 	if(action=="mutate"){
 		return(
 			df%>%
 				mutate(
-					!!color:=factor(
+					color:=factor(
 						if_else(is.na(!!color),"", as.character(!!color))
 					)
 				)
