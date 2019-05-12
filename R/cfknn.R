@@ -28,7 +28,7 @@ cf=function(table, nfolds, times=1){
 predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, !!color, na.action);
+	df=fix_df(df, vars, color, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -62,7 +62,7 @@ predict_knn_=function(df, folds, ..., color,k=10, na.action="mutate"){
 knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, !!color, na.action);
+	df=fix_df(df, vars, color, na.action);
 	folds=cf(df, nfold, times=times);
 	err=c();
 	min_k=min(k)-1;
@@ -84,7 +84,7 @@ knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate"){
 predict_knn=function(df, folds, ..., color,k=10, na.action="mutate"){
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, !!color, na.action);
+	df=fix_df(df, vars, color, na.action);
 	space_table=df%>%
 		select(!!!vars);
 	class_table=df%>%
@@ -134,7 +134,7 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
 	}
 	vars=enquos(...);
 	color=enquo(color);
-	df=fix_df(df, !!color, na.action);
+	df=fix_df(df, vars, color, na.action);
 	folds=cf(df, nfold, times=times);
 	err=tibble(k=integer(), err=double());
 	for(i in k){
@@ -170,7 +170,7 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
 		geom_line(data=sum, aes(k, min), color="blue")+
 		labs(
 			title=paste0(
-				" knn best k-value: ",
+				"knn best k-value: ",
 				paste(
 					min_avg$k,
 					collapse=", "
@@ -188,24 +188,51 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate"){
 	list(err=err, sum=sum, plot=plot, min=min_avg);
 }
 
-fix_df=function(df, color, action){
-	color=enquo(color);
+fix_df=function(df, vars, color, action){
 	action=tolower(action);
+	df=df%>%
+		select(!!color, !!!vars);
+
 	if(action=="mutate"){
+		return(
+			df%>%
+				mutate_all(
+					function(x){
+						if(is.numeric(x))return(
+							if_else(is.na(x), 0, as.numeric(x))
+						)
+						if(is.factor(x))return(
+							factor(if_else(is.na(x), "", as.character(x)))
+						)
+						if(is.character(x))return(
+							if_else(is.na(x), "", x)
+						)
+						x;
+					}
+				)
+		);
+	}
+	if(action=="mutate|remove"){
 		return(
 			df%>%
 				mutate(
 					color:=factor(
 						if_else(is.na(!!color),"", as.character(!!color))
 					)
+				)%>%
+				filter_at(
+					vars(-!!color),
+					all_vars(!is.na(.))
 				)
 		);
 	}
 	if(action=="remove"){
 		return(
 			df%>%
-				filter(!is.na(!!color))
-		);
+				filter_all(
+					all_vars(!is.na(.))
+				)
+			);
 	}
 	return(df);
 }

@@ -34,6 +34,7 @@ knn_cv(df, ..., color, k=1:200, nfold=10, times=10, na.action="mutate")
 		What to do with NA values.\cr
 		"mutate": Convert to empty strings\cr
 		"remove": Removes all NAs\cr
+		"mutate|remove": Applies mutate on color and remove on other columns
 		other: No action
 	}
 }
