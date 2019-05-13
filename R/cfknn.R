@@ -240,16 +240,26 @@ fix_df=function(df, vars, color, action){
 knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
 	vars=enquos(...);
 	color=enquo(color);
-	dfr=df%>%
-		select(!!!vars, !!color);
-	train=dfr%>%
+	train=df%>%
 		filter(!is.na(!!color));
-	cl=train%>%
-		select(!!color);
-	test=dfr%>%
+	cl=;
+	test=df%>%
 		filter(!is.na(!!color))%>%
 		select(-!!color);
-	vals=knn(train%>%select(-!!color), test, cl=cl[[1]], k=k, l=l, prob=prob, use.all=use.all);
+	vals=knn(
+		train%>%
+			select(!!!vars),
+		test%>%
+			select(!!!vars),
+		cl=(
+			train%>%
+				select(!!color)
+		)[[1]],
+		k=k,
+		l=l,
+		prob=prob,
+		use.all=use.all
+	);
 	union(
 		train,
 		test%>%
