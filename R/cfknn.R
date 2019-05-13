@@ -135,50 +135,25 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", 
 	vars=enquos(...);
 	color=enquo(color);
 	df=fix_df(df, vars, color, na.action);
-	err=tibble(k=integer(), err=double(), facet=character());
-	levels=lapply(
-			select(df, !!!groups(df)), function(x){
-				l=levels(x);
-				if(is.null(l))warning(paste0("Ignoring group: ", x));
-				l;
-			}
-		);
-	levels=cross(Filter(function(x)!is.null(x),levels));
-	process=function(df, facet){
-		folds=cf(df, nfold, times=times);
-		for(i in min(k):min(length(df[[1]]),max(k))){
-			err=err%>%
-				add_row(
-					err=predict_knn(
-						df, folds, !!!vars, color=!!color, k=i,
-						na.action="", l=l, prob=prob, use.all=use.all
-					),
-					k=i,
-					facet=facet
-				);
-		}
-		err;
-	}
-	if(length(levels)==0)err=process(df,"")
-	else{
-		for(i in levels){
-			df2=df;
-			for(name in names(i)){
-				q=enquo(sym(name));
-				df2%>%
-					filter(!!q==i[[name]]);
-			}
-			err=process(df, paste(i, collapse="|"));
-		}
+	folds=cf(df, nfold, times=times);
+	err=tibble(k=integer(), err=double());
+	for(i in k){
+		err=err%>%
+			add_row(
+				err=predict_knn(
+					df, folds, !!!vars, color=!!color, k=i, na.action="", l=l, prob=prob, use.all=use.all
+				),
+				k=i
+			);
 	}
 	# Get stats
 	sum=err%>%
 		group_by(k)%>%
-		summarise(avg=mean(err,na.rm=TRUE), max=max(err,na.rm=TRUE), min=min(err,na.rm=TRUE));
+		summarise(avg=mean(err), max=max(err), min=min(err));
 	# Get min
 	min_avg=(
 		sum%>%
-			summarise(min=min(avg, na.rm=TRUE))
+			summarise(min=min(avg))
 	)$min[1];
 	min_avg=sum%>%
 		filter(avg==min_avg)%>%
@@ -193,7 +168,6 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", 
 		geom_line(data=sum, aes(k, max), color="red")+
 		geom_point(data=sum, aes(k, min), color="blue")+
 		geom_line(data=sum, aes(k, min), color="blue")+
-		facet_wrap(~facet)+
 		labs(
 			title=paste0(
 				"knn best k-value: ",
@@ -216,12 +190,13 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", 
 
 fix_df=function(df, vars, color, action){
 	action=tolower(action);
+	df=df%>%
+		select(!!color, !!!vars);
 
 	if(action=="mutate"){
 		return(
 			df%>%
-				mutate_at(
-					vars(!!color, !!!vars),
+				mutate_all(
 					function(x){
 						if(is.numeric(x))return(
 							if_else(is.na(x), 0, as.numeric(x))
@@ -246,7 +221,7 @@ fix_df=function(df, vars, color, action){
 					)
 				)%>%
 				filter_at(
-					vars(!!!vars),
+					vars(-!!color),
 					all_vars(!is.na(.))
 				)
 		);
@@ -254,8 +229,7 @@ fix_df=function(df, vars, color, action){
 	if(action=="remove"){
 		return(
 			df%>%
-				filter_at(
-					vars(!!color, !!!vars),
+				filter_all(
 					all_vars(!is.na(.))
 				)
 			);
