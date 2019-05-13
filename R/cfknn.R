@@ -242,7 +242,6 @@ knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
 	color=enquo(color);
 	train=df%>%
 		filter(!is.na(!!color));
-	cl=;
 	test=df%>%
 		filter(!is.na(!!color))%>%
 		select(-!!color);
