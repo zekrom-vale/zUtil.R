@@ -256,7 +256,8 @@ knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
 			mutate(
 				!!color:=vals
 			)
-	);
+	)%>%
+		as_tibble();
 }
 
 
