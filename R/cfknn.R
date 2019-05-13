@@ -82,8 +82,10 @@ knn_cv_=function(df, ..., color,k=1:50, nfold=10, times=1, na.action="mutate", l
 
 
 predict_knn=function(df, folds, ..., color,k=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
+	# Quasi quote ... and color for dplyr
 	vars=enquos(...);
 	color=enquo(color);
+	# Remove or fix NA values
 	df=fix_df(df, vars, color, na.action);
 	space_table=df%>%
 		select(!!!vars);
@@ -92,24 +94,30 @@ predict_knn=function(df, folds, ..., color,k=10, na.action="mutate", l=0, prob=F
 	err=c();
 	i=1L;
 	for(cross_fold in folds){
+		# Retrive train and test rows
 		train_rows=cross_fold[[1]];
 		test_rows=cross_fold[[2]];
+		# Extract train
 		fold_train=space_table%>%
 			slice(train_rows);
 		fold_classes=class_table%>%
 			slice(train_rows);
-		fold_classes=fold_classes[[1]];
-		fold_classes=factor(fold_classes);
+		# Convert fold_classes into a factor
+		fold_classes=factor(fold_classes[[1]]);
+		# Extract test rows
 		fold_test=space_table%>%
 			slice(test_rows);
+		# Pass through predict
 		predicted=knn(fold_train, fold_test, fold_classes, k, l=l, prob=prob, use.all=use.all);
-		# Test
+		# Get actual values
 		actual=class_table%>%
 			slice(test_rows);
+		# Test, check for equality and add one to the accumulator if
+		# TRUE
 		err[i]=reduce2(
 			predicted,
 			actual[[1]],
-			.f=function(acc,p,a)acc+(p==a),
+			.f=function(acc,p,a)acc+(p==a),# Auto cources T/F into 1/0
 			.init=0
 		)/length(predicted);
 		i=i+1;
@@ -132,42 +140,58 @@ knn_cv=function(df, ..., color, k=1:200, nfold=10, times=10, na.action="mutate",
 	else if(nfold>=20){
 		warning("nfold is high, consider decreasing nfold to 10 (Few test values)");
 	}
+	# Quasi quote
 	vars=enquos(...);
 	color=enquo(color);
+	# Remove or fix NA values
 	df=fix_df(df, vars, color, na.action);
+	# Create folds
 	folds=cf(df, nfold, times=times);
+	# Create empty table to fill
 	err=tibble(k=integer(), err=double());
+	# For each k given do the folowing
 	for(i in k){
+		# Add the folowing row to the err table
 		err=err%>%
 			add_row(
+				# err is the vector created from predict_knn
 				err=predict_knn(
 					df, folds, !!!vars, color=!!color, k=i, na.action="", l=l, prob=prob, use.all=use.all
 				),
+				# k is the i value from the vector k
+				# Automaticaly recycled due to the way add_row works
 				k=i
 			);
 	}
 	# Get stats
+	# For each k summaries to get avg, max, min
 	sum=err%>%
 		group_by(k)%>%
 		summarise(avg=mean(err), max=max(err), min=min(err));
-	# Get min
+	# Get min value for all k's
 	min_avg=(
 		sum%>%
 			summarise(min=min(avg))
 	)$min[1];
+	# Get the k value that corisponds to the min k
 	min_avg=sum%>%
 		filter(avg==min_avg)%>%
 		select(k, avg);
 
 	# ggplot
 	plot=ggplot()+
+		# Plot each test point
 		geom_point(data=err, aes(k, err))+
+		# Plot the average per k value
 		geom_point(data=sum, aes(k, avg), color="green")+
 		geom_line(data=sum, aes(k, avg), color="green")+
+		# Plot the max per k value
 		geom_point(data=sum, aes(k, max), color="red")+
 		geom_line(data=sum, aes(k, max), color="red")+
+		# Plot the min per k value
 		geom_point(data=sum, aes(k, min), color="blue")+
 		geom_line(data=sum, aes(k, min), color="blue")+
+		# Add lable
 		labs(
 			title=paste0(
 				"knn best k-value: ",
@@ -185,16 +209,21 @@ knn_cv=function(df, ..., color, k=1:200, nfold=10, times=10, na.action="mutate",
 	if(min(min_avg$k)<min(k)*1.1){
 		warning("k value close to min, recomend expanding min range");
 	}
+	# Return a list of values to aid in use
+	# ggplot will automaticaly print if left as is
 	list(err=err, sum=sum, plot=plot, min=min_avg);
 }
 
 fix_df=function(df, vars, color, action){
+	# Change action to lower to make case insincitive
 	action=tolower(action);
+	# Select only needed columns
 	df=df%>%
 		select(!!color, !!!vars);
 
 	if(action=="mutate"){
 		return(
+			# For all columns do the folowing
 			df%>%
 				mutate_all(
 					function(x){
@@ -214,6 +243,7 @@ fix_df=function(df, vars, color, action){
 	}
 	if(action=="mutate|remove"){
 		return(
+			# Replace all NA's with ""
 			df%>%
 				mutate(
 					color:=factor(
@@ -221,6 +251,8 @@ fix_df=function(df, vars, color, action){
 					)
 				)%>%
 				filter_at(
+					# For all columns other than color
+					# Filter such that all columns are not NA
 					vars(-!!color),
 					all_vars(!is.na(.))
 				)
@@ -228,6 +260,8 @@ fix_df=function(df, vars, color, action){
 	}
 	if(action=="remove"){
 		return(
+			# For all columnss
+			# Filter such that all columns are not NA
 			df%>%
 				filter_all(
 					all_vars(!is.na(.))
