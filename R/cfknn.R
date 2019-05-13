@@ -118,7 +118,7 @@ predict_knn=function(df, folds, ..., color,k=10, na.action="mutate", l=0, prob=F
 }
 
 
-knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
+knn_cv=function(df, ..., color, facet=NULL, k=1:200, nfold=10, times=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
 	# Bad setings warning
 	if(max(k)-min(k)<=30){
 		warning("Best k value may be inacurate due to limited checks");
@@ -134,40 +134,58 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", 
 	}
 	vars=enquos(...);
 	color=enquo(color);
+	facet=enquo(facet);
 	df=fix_df(df, vars, color, na.action);
-	folds=cf(df, nfold, times=times);
-	err=tibble(k=integer(), err=double());
-	for(i in k){
-		err=err%>%
-			add_row(
-				err=predict_knn(
-					df, folds, !!!vars, color=!!color, k=i, na.action="", l=l, prob=prob, use.all=use.all
-				),
-				k=i
-			);
+	err=tibble(k=integer(), err=double(), facet=character());
+	levels=levels(facet);
+	process=function(df, f){
+		folds=cf(df, nfold, times=times);
+		for(i in min(k):min(length(df[[1]]),max(k))){
+			err=err%>%
+				add_row(
+					err=predict_knn(
+						df, folds, !!!vars, color=!!color, k=i,
+						na.action="", l=l, prob=prob, use.all=use.all
+					),
+					k=i,
+					facet=f
+				);
+		}
+		err;
+	}
+	if(is.null(levels))err=process(df,"")
+	else{
+		for(i in levels){
+			df2=df%>%
+				filter(
+					!!facet==i
+				);
+			err=process(df, i);
+		}
 	}
 	# Get stats
 	sum=err%>%
-		group_by(k)%>%
-		summarise(avg=mean(err), max=max(err), min=min(err));
+		group_by(k, facet)%>%
+		summarise(avg=mean(err,na.rm=TRUE), max=max(err,na.rm=TRUE), min=min(err,na.rm=TRUE));
 	# Get min
 	min_avg=(
 		sum%>%
-			summarise(min=min(avg))
+			summarise(min=min(avg, na.rm=TRUE))
 	)$min[1];
 	min_avg=sum%>%
 		filter(avg==min_avg)%>%
 		select(k, avg);
 
 	# ggplot
-	plot=ggplot()+
+	plot=ggplot(data=sum)+
 		geom_point(data=err, aes(k, err))+
-		geom_point(data=sum, aes(k, avg), color="green")+
-		geom_line(data=sum, aes(k, avg), color="green")+
-		geom_point(data=sum, aes(k, max), color="red")+
-		geom_line(data=sum, aes(k, max), color="red")+
-		geom_point(data=sum, aes(k, min), color="blue")+
-		geom_line(data=sum, aes(k, min), color="blue")+
+		geom_point(aes(k, avg), color="green")+
+		geom_line(aes(k, avg), color="green")+
+		geom_point(aes(k, max), color="red")+
+		geom_line(aes(k, max), color="red")+
+		geom_point(aes(k, min), color="blue")+
+		geom_line(aes(k, min), color="blue")+
+		facet_wrap(~facet)+
 		labs(
 			title=paste0(
 				"knn best k-value: ",
@@ -190,13 +208,12 @@ knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", 
 
 fix_df=function(df, vars, color, action){
 	action=tolower(action);
-	df=df%>%
-		select(!!color, !!!vars);
 
 	if(action=="mutate"){
 		return(
 			df%>%
-				mutate_all(
+				mutate_at(
+					vars(!!color, !!!vars),
 					function(x){
 						if(is.numeric(x))return(
 							if_else(is.na(x), 0, as.numeric(x))
@@ -221,7 +238,7 @@ fix_df=function(df, vars, color, action){
 					)
 				)%>%
 				filter_at(
-					vars(-!!color),
+					vars(!!!vars),
 					all_vars(!is.na(.))
 				)
 		);
@@ -229,7 +246,8 @@ fix_df=function(df, vars, color, action){
 	if(action=="remove"){
 		return(
 			df%>%
-				filter_all(
+				filter_at(
+					vars(!!color, !!!vars),
 					all_vars(!is.na(.))
 				)
 			);
