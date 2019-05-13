@@ -241,7 +241,7 @@ knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
 	vars=enquos(...);
 	color=enquo(color);
 	dfr=df%>%
-		select(!!!vars, color);
+		select(!!!vars, !!color);
 	train=dfr%>%
 		filter(!is.na(!!color));
 	cl=train%>%
@@ -249,7 +249,14 @@ knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
 	test=dfr%>%
 		filter(!is.na(!!color))%>%
 		select(-!!color);
-	knn(train%>%select(-!!color), test, cl=cl[[1]], k=k, l=l, prob=prob, use.all=use.all)
+	vals=knn(train%>%select(-!!color), test, cl=cl[[1]], k=k, l=l, prob=prob, use.all=use.all);
+	untion(
+		train,
+		test%>%
+			mutate(
+				!!color:=vals
+			)
+	);
 }
 
 
