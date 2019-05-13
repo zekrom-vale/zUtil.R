@@ -118,7 +118,7 @@ predict_knn=function(df, folds, ..., color,k=10, na.action="mutate", l=0, prob=F
 }
 
 
-knn_cv=function(df, ..., color,k=1:200, nfold=10, times=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
+knn_cv=function(df, ..., color, k=1:200, nfold=10, times=10, na.action="mutate", l=0, prob=FALSE, use.all=TRUE){
 	# Bad setings warning
 	if(max(k)-min(k)<=30){
 		warning("Best k value may be inacurate due to limited checks");
@@ -235,6 +235,21 @@ fix_df=function(df, vars, color, action){
 			);
 	}
 	return(df);
+}
+
+knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
+	vars=enquos(...);
+	color=enquo(color);
+	dfr=df%>%
+		select(!!!vars, color);
+	train=dfr%>%
+		filter(!is.na(!!color));
+	cl=train%>%
+		select(!!color);
+	test=dfr%>%
+		filter(!is.na(!!color))%>%
+		select(-!!color);
+	knn(train%>%select(-!!color), test, cl=cl[[1]], k=k, l=l, prob=prob, use.all=use.all)
 }
 
 
