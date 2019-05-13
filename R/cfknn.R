@@ -250,7 +250,7 @@ knn_fill=function(df, ..., color, k=1, l=0, prob=FALSE, use.all=TRUE){
 		filter(!is.na(!!color))%>%
 		select(-!!color);
 	vals=knn(train%>%select(-!!color), test, cl=cl[[1]], k=k, l=l, prob=prob, use.all=use.all);
-	untion(
+	union(
 		train,
 		test%>%
 			mutate(
